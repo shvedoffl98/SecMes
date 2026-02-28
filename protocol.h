@@ -5,6 +5,7 @@
 #include <array>
 #include <vector>
 
+
 struct __attribute__((packed)) protocol_header_t
 {
     uint8_t magic {};
@@ -15,10 +16,10 @@ struct __attribute__((packed)) protocol_header_t
 
 struct __attribute__((packed)) message_header_t
 {
-    std::uint64_t sender_id {};
-    std::uint64_t receiver_id {};
-    std::uint64_t message_number {};
-    std::uint64_t message_count {};
+    uint64_t sender_id {};
+    uint64_t receiver_id {};
+    uint64_t message_number {};
+    uint64_t message_count {};
 
     /**
      * Signature. Should be calculated based on all
