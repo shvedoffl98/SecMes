@@ -1,10 +1,9 @@
 #pragma once
 
-#include <array>
-#include <vector>
 #include <cstddef>
 #include <cstdint>
-
+#include <array>
+#include <vector>
 
 struct __attribute__((packed)) protocol_header_t
 {
@@ -16,10 +15,10 @@ struct __attribute__((packed)) protocol_header_t
 
 struct __attribute__((packed)) message_header_t
 {
-    uint64_t sender_id {};
-    uint64_t receiver_id {};
-    uint64_t message_number {};
-    uint64_t message_count {};
+    std::uint64_t sender_id {};
+    std::uint64_t receiver_id {};
+    std::uint64_t message_number {};
+    std::uint64_t message_count {};
 
     /**
      * Signature. Should be calculated based on all
