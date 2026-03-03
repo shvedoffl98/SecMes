@@ -1,5 +1,11 @@
 #pragma once
 
+#include <cstring>
+#include <utility>
+#include <iostream>
+
+#include <arpa/inet.h>
+
 #include "channel_base.h"
 
 
@@ -28,7 +34,8 @@ class SocketUDP : public ChannelBase<SocketUDP>
 {
 /* Aliases */
 private:
-using udp_socket_traits = l3_channel_traits<SocketUDP>;
+    using udp_socket_traits = l3_channel_traits<SocketUDP>;
+    using sock_len_t = uint32_t;
 
 /* Constructors */
 public:
@@ -40,8 +47,9 @@ public:
 
 /* Public API */
 public:
-    void init_impl()
+    bool init_impl()
     {
+        bool ret_val {true};
         struct sockaddr_in sock_addr {};
         sock_addr = {.sin_family = udp_socket_traits::domain_v4,
                      .sin_port = htons(config.port)};
@@ -51,9 +59,11 @@ public:
                          udp_socket_traits::type,
                          udp_socket_traits::protocol);
 
-        if (bind(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr))
-                == udp_socket_traits::sock_fd_not_inited) {
+        if (!_bind_impl(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr))) {
+            ret_val = false;
         }
+
+        return ret_val;
     }
 
     void read_impl()
@@ -73,6 +83,14 @@ public:
 
 /* Private methods */
 private:
+    uint32_t _bind_impl(socket_fd_t sock_fd,
+                        struct sockaddr* sock_addr,
+                        sock_len_t sock_len)
+    {
+        return bind(sock_fd, sock_addr, sock_len)
+            != udp_socket_traits::sock_fd_not_inited;
+    }
+
 
 /* Owning obkects*/
 private:

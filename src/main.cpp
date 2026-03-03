@@ -1,4 +1,4 @@
-#include "config/configuration.h"
+#include "configuration/configuration.h"
 #include "net/channel_base.h"
 #include "protocol/protocol.h"
 #include "net/channel_udp.h"

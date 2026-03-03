@@ -1,14 +1,12 @@
 #pragma once
 
+#include <string>
+#include <variant>
 #include <concepts>
 #include <type_traits>
-#include <variant>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <string>
-#include <arpa/inet.h>
-#include <cstring>
-#include <iostream>
 
 
 namespace secmes
@@ -23,7 +21,7 @@ using ip_from_config_t = std::string;
 
 template <typename CHANNEL_TYPE>
 concept HasInit = requires(CHANNEL_TYPE t) {
-    { t.init_impl() } -> std::same_as<void>;
+    { t.init_impl() } -> std::same_as<bool>;
 };
 
 template <typename CHANNEL_TYPE>
@@ -43,9 +41,9 @@ concept HasWrite = requires(CHANNEL_TYPE t) {
 
 template <typename CHANNEL_TYPE>
 concept ChannelLike = HasInit<CHANNEL_TYPE>  &&
-                     HasClose<CHANNEL_TYPE> &&
-                     HasRead<CHANNEL_TYPE>  &&
-                     HasWrite<CHANNEL_TYPE>;
+                      HasClose<CHANNEL_TYPE> &&
+                      HasRead<CHANNEL_TYPE>  &&
+                      HasWrite<CHANNEL_TYPE>;
 
 template <typename ChannelDerived>
 class ChannelBase
