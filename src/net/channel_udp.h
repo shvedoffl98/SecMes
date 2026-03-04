@@ -46,7 +46,7 @@ private:
 public:
     explicit SocketUDP(l3_channel_config_t&& cfg)
     : sock_fd(udp_socket_traits::sock_fd_not_inited),
-      efd {},
+      epfd {},
       config(std::move(cfg)),
       r_mtx {},
       w_mtx {}
@@ -75,35 +75,52 @@ public:
             if (!_bind_impl(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr))) {
                 ret_val = false;
             } else {
-                efd = epoll_create1(0);
+                epfd = epoll_create1(0);
                 epoll_event ev {};
                 ev.events = EPOLLIN;
                 ev.data.fd = sock_fd;
-                epoll_ctl(efd, EPOLL_CTL_ADD, sock_fd, &ev);
+                epoll_ctl(epfd, EPOLL_CTL_ADD, sock_fd, &ev);
             }
         }
         return ret_val;
     }
 
-    void read_impl()
+    std::optional<std::vector<std::byte>> read_impl()
     {
         std::lock_guard<std::mutex> lock(r_mtx);
-        struct epoll_event events[1];
-        int nfds;
 
-        // unsigned char buffer[1200];
-        while (1) {
-            nfds = epoll_wait(efd, events, 1, -1);
+        struct epoll_event events[1] {};
+        int32_t socket_fd_ready_count {};
 
-            for (int i = 0; i < nfds; i++) {
-                if (events[i].data.fd == sock_fd) {
-                    // struct sockaddr_in addr;
-                    // memset(&addr, 0, sizeof(sockaddr_in));
-                    // socklen_t len = sizeof(addr);
-                    // recvfrom(sock_fd, (unsigned char*)(buffer), 1200, MSG_WAITALL, (struct sockaddr*)&addr, &len);
+        std::vector<std::byte> vec {};
+        std::optional<std::vector<std::byte>> ret_val {};
+        vec.resize(PACKET_SIZE);
+
+        socket_fd_ready_count = epoll_wait(epfd, events, 1, -1);
+
+        for (decltype(socket_fd_ready_count) i = 0;
+                i < socket_fd_ready_count;
+                ++i) {
+            if (events[i].data.fd == sock_fd) {
+                struct sockaddr_in addr {};
+                memset(&addr, 0, sizeof(sockaddr_in));
+                sock_len_t len = sizeof(addr);
+                ssize_t recv_bytes = recvfrom(events[i].data.fd,
+                                     vec.data(),
+                                     PACKET_SIZE,
+                                     0,
+                                     (struct sockaddr*)&addr,
+                                     &len);
+                if (recv_bytes <= 0) {
+                    vec.clear();
+                    ret_val = std::nullopt;
+                } else {
+                    vec.resize(recv_bytes);
+                    ret_val = std::move(vec);
                 }
             }
         }
+        return ret_val;
     }
 
     void write_impl()
@@ -127,7 +144,7 @@ private:
 /* Owning obkects*/
 private:
     socket_fd_t sock_fd;
-    epoll_fd_t efd;
+    epoll_fd_t epfd;
     l3_channel_config_t config;
     std::mutex r_mtx;
     std::mutex w_mtx;

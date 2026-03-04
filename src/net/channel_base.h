@@ -4,6 +4,8 @@
 #include <variant>
 #include <concepts>
 #include <type_traits>
+#include <optional>
+#include <vector>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,6 +16,9 @@ namespace secmes
 
 namespace network
 {
+/* Constants */
+constexpr uint16_t PACKET_SIZE = 1200;
+
 /* Aliases */
 using socket_fd_t = int32_t;
 using port_type_t = uint16_t;
@@ -31,7 +36,7 @@ concept HasClose = requires(CHANNEL_TYPE t) {
 
 template <typename CHANNEL_TYPE>
 concept HasRead = requires(CHANNEL_TYPE t) {
-    { t.read_impl() } -> std::same_as<void>;
+    { t.read_impl() } -> std::same_as<std::optional<std::vector<std::byte>>>;
 };
 
 template <typename CHANNEL_TYPE>
@@ -54,7 +59,7 @@ public:
 
 public:
     bool init_base() requires ChannelLike<ChannelDerived>  { return derived().init_impl(); }
-    void read_base() requires ChannelLike<ChannelDerived>  { return derived().read_impl(); }
+    std::optional<std::vector<std::byte>> read_base() requires ChannelLike<ChannelDerived>  { return derived().read_impl(); }
     void write_base() requires ChannelLike<ChannelDerived> { return derived().write_impl(); }
     void close_base() requires ChannelLike<ChannelDerived> { return derived().close_impl(); }
 
