@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <vector>
+
 #include "tlv.h"
 
 
@@ -44,7 +45,10 @@ struct __attribute__((packed)) message_header_t
 };
 
 
-/* Messages structures */
+/**
+ * Messages structures.
+ * Should be all std::is_standard_layout<T> == true.
+ */
 template <message_type_e msg_type>
 struct __attribute__((packed)) message_payload_t;
 
