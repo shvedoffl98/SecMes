@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "tlv.h"
+#include "../crypto/openssl_wrapper.h"
 
 
 namespace shadow
@@ -13,6 +14,7 @@ namespace shadow
 
 namespace protocol
 {
+
 
 enum class message_type_e : uint8_t
 {
@@ -56,18 +58,22 @@ struct __attribute__((packed)) message_payload_t;
 template <>
 struct __attribute__((packed)) message_payload_t<message_type_e::CLIENT_HELLO>
 {
+    using df_ret_size_t = shadow::network::crypto::CryptoProvider::df_ret_size_t;
+
     protocol_header_t prt_hdr {};
     message_header_t msg_hdr {};
-    std::array<std::byte, 32> client_public_key;
+    std::array<std::byte, df_ret_size_t::X25519_ret_size_b> client_public_key;
 };
 
 
 template <>
 struct __attribute__((packed)) message_payload_t<message_type_e::SERVER_HELLO>
 {
+    using df_ret_size_t = shadow::network::crypto::CryptoProvider::df_ret_size_t;
+
     protocol_header_t prt_hdr {};
     message_header_t msg_hdr {};
-    std::array<std::byte, 32> server_public_key;
+    std::array<std::byte, df_ret_size_t::X25519_ret_size_b> server_public_key;
 };
 
 

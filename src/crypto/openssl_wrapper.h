@@ -2,8 +2,11 @@
 
 #include <array>
 #include <utility>
+#include <memory>
 
 #include <openssl/evp.h>
+#include <openssl/sha.h>
+
 
 namespace shadow
 {
@@ -14,8 +17,14 @@ namespace network
 namespace crypto
 {
 
+
 class CryptoProvider
 {
+
+/**
+ * TODO: add SHA-256, HMAC based on sha-256
+ *
+ */
 public:
     /**
      *  Diffie Hellman algorithms return keys sizes in bytes.
@@ -27,8 +36,12 @@ public:
         static constexpr uint8_t X25519_ret_size_b = 32;
     };
 
+/* Aliases */
 public:
-    using public_key_t = std::array<uint8_t, dh_return_keys_size_bytes_t::X25519_ret_size_b>;
+using df_ret_size_t = CryptoProvider::dh_return_keys_size_bytes_t;
+
+public:
+    using public_key_t = std::array<uint8_t, df_ret_size_t::X25519_ret_size_b>;
     using private_key_t = public_key_t;
 
 public:
@@ -58,7 +71,6 @@ public:
         return ret_val;
     }
 };
-
 }
 }
 }
