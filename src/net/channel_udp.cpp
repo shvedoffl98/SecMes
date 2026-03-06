@@ -8,13 +8,15 @@ namespace network
 {
 
 SocketUDP::SocketUDP(udp_ch_init_dto_t&& cfg) noexcept(true)
-    : sock_fd(udp_ch_traits_t::sock_fd_not_inited),
-      epfd {},
+    : sock_fd {udp_ch_traits_t::sock_fd_not_inited},
+      epfd {udp_ch_traits_t::sock_fd_not_inited},
       config(std::move(cfg)),
       r_mtx {},
       w_mtx {}
 {
-    _init();
+    if (!_init()) {
+        _close_save();
+    }
 }
 
 SocketUDP::~SocketUDP() noexcept(true)
@@ -31,32 +33,34 @@ std::optional<std::vector<std::byte>> SocketUDP::read_impl()
     std::lock_guard<std::mutex> lock(r_mtx);
 
     /* Return value */
-    std::optional<std::vector<std::byte>> ret_val {};
+    std::optional<std::vector<std::byte>> ret_val {std::nullopt};
 
-    /* Just one socket fd */
-    struct epoll_event events[1] {};
-    int32_t socket_ready {};
+    if (sock_fd != udp_ch_traits_t::sock_fd_not_inited) {
+        /* Just one socket fd */
+        struct epoll_event events[1] {};
+        int32_t socket_ready {};
 
-    std::vector<std::byte> vec {};
-    vec.resize(protocol::PACKET_SIZE_BYTES);
-    socket_ready = epoll_wait(epfd, events, 1, -1);
+        std::vector<std::byte> vec {};
+        vec.resize(protocol::PACKET_SIZE_BYTES);
+        socket_ready = epoll_wait(epfd, events, 1, -1);
 
-    if (/*1*/socket_ready > 0 && events[0].data.fd == sock_fd) {
-        struct sockaddr_in addr {};
-        memset(&addr, 0, sizeof(sockaddr_in));
-        sock_len_t len = sizeof(addr);
-        ssize_t recv_bytes = recvfrom(events[0].data.fd,
-                                vec.data(),
-                                protocol::PACKET_SIZE_BYTES,
-                                0,
-                                (struct sockaddr*)&addr,
-                                &len);
+        if (/*1*/socket_ready > 0 && events[0].data.fd == sock_fd) {
+            struct sockaddr_in addr {};
+            memset(&addr, 0, sizeof(sockaddr_in));
+            sock_len_t len = sizeof(addr);
+            ssize_t recv_bytes = recvfrom(events[0].data.fd,
+                                    vec.data(),
+                                    protocol::PACKET_SIZE_BYTES,
+                                    0,
+                                    (struct sockaddr*)&addr,
+                                    &len);
 
-        if (recv_bytes <= 0) {
-            ret_val = std::nullopt;
-        } else {
-            vec.resize(recv_bytes);
-            ret_val = std::move(vec);
+            if (recv_bytes <= 0) {
+                ret_val = std::nullopt;
+            } else {
+                vec.resize(recv_bytes);
+                ret_val = std::move(vec);
+            }
         }
     }
     return ret_val;
@@ -64,16 +68,22 @@ std::optional<std::vector<std::byte>> SocketUDP::read_impl()
 
 bool SocketUDP::write_impl(udp_ch_write_dto_t&& cfg)
 {
-    bool ret_val {true};
-    struct sockaddr_in sock_addr {};
-    sock_addr = {.sin_family = udp_ch_traits_t::domain_v4,
-                    .sin_port = htons(cfg.port)};
+    std::lock_guard<std::mutex> lock(w_mtx);
 
-    inet_aton(cfg.send2ip.c_str(), &sock_addr.sin_addr);
+    /* Return value */
+    bool ret_val {false};
 
-    sock_len_t len = sizeof(sock_addr);
-    if(sendto(sock_fd, cfg.data.data(), cfg.data.size(), 0, (struct sockaddr*)&sock_addr, len) < 0) {
-        ret_val = false;
+    if (sock_fd != udp_ch_traits_t::sock_fd_not_inited) {
+        struct sockaddr_in sock_addr {};
+        sock_addr = {.sin_family = udp_ch_traits_t::domain_v4,
+                        .sin_port = htons(cfg.port)};
+
+        inet_aton(cfg.send2ip.c_str(), &sock_addr.sin_addr);
+
+        sock_len_t len = sizeof(sock_addr);
+        if(sendto(sock_fd, cfg.data.data(), cfg.data.size(), 0, (struct sockaddr*)&sock_addr, len) >= 0) {
+            ret_val = true;
+        }
     }
     return ret_val;
 }
@@ -81,23 +91,31 @@ bool SocketUDP::write_impl(udp_ch_write_dto_t&& cfg)
 bool SocketUDP::_init()
 {
     std::scoped_lock lock(r_mtx, w_mtx);
+
+    /* Return value */
     bool ret_val {true};
+
     if (sock_fd == udp_ch_traits_t::sock_fd_not_inited) {
         struct sockaddr_in sock_addr {};
         sock_addr = {.sin_family = udp_ch_traits_t::domain_v4,
-                    .sin_port = htons(config.port)};
+                     .sin_port = htons(config.port)};
 
         inet_aton(config.ip.c_str(), &sock_addr.sin_addr);
+
         sock_fd = socket(sock_addr.sin_family,
                         udp_ch_traits_t::type,
                         udp_ch_traits_t::protocol);
 
+        /* Make socket NON blocking*/
         fcntl(sock_fd, F_SETFL, O_NONBLOCK);
 
+        /* If binding fails, */
         if (!_bind(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr))) {
             ret_val = false;
         } else {
-            _do_modify_epoll(EPOLLIN, EPOLL_CTL_ADD);
+            if (!_init_epoll(EPOLLIN, EPOLL_CTL_ADD)) {
+                ret_val = false;
+            }
         }
     }
     return ret_val;
@@ -111,7 +129,7 @@ uint32_t SocketUDP::_bind(socket_fd_t sock_fd,
         != udp_ch_traits_t::sock_fd_not_inited;
 }
 
-bool SocketUDP::_do_modify_epoll(EPOLL_EVENTS event, decltype(EPOLL_CTL_ADD) action)
+bool SocketUDP::_init_epoll(EPOLL_EVENTS event, decltype(EPOLL_CTL_ADD) action)
 {
     /**
      * TODO: Modify code to process different actions

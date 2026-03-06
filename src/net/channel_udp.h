@@ -24,6 +24,14 @@ namespace network
 
 class SocketUDP : public ChannelBase<SocketUDP>
 {
+/**
+ * TODO: MAKE PROPER AND CLEAR ERROR HANDLING
+ * EX: - sockets not inited - error
+ *     - no data - warning/error
+ *     - epoll errors
+ *     - ...
+ */
+
 public:
     /* UDP config */
     struct udp_ch_init_dto_t
@@ -41,7 +49,7 @@ public:
         static constexpr domain_t domain_v6 = AF_INET6;
         static constexpr protocol_t protocol = IPPROTO_UDP;
         static constexpr type_t type = SOCK_DGRAM;
-        static constexpr uint8_t sock_fd_not_inited = -1;
+        static constexpr int8_t sock_fd_not_inited = -1;
     };
 
     struct udp_ch_write_dto_t
@@ -73,7 +81,7 @@ public:
 private:
     bool _init();
     uint32_t _bind(socket_fd_t sock_fd, struct sockaddr* sock_addr, sock_len_t sock_len);
-    bool _do_modify_epoll(EPOLL_EVENTS event, decltype(EPOLL_CTL_ADD) action);
+    bool _init_epoll(EPOLL_EVENTS event, decltype(EPOLL_CTL_ADD) action);
     void _close_save();
 
 /* Owning objects*/
