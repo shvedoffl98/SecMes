@@ -4,6 +4,7 @@
 #include "protocol/protocol_structure.h"
 #include "protocol/tlv.h"
 #include "crypto/crypto_provider.h"
+#include "builder/builder.h"
 
 
 int main(int argc, char** argv)
